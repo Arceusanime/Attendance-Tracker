@@ -10,6 +10,7 @@
  */
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── STORAGE SHIM ────────────────────────────────────────────────
 // Works inside Claude artifacts (window.storage) AND in a normal
@@ -74,6 +75,35 @@ function totalClassesFor(days, schedule) {
 }
 function storageKeyFor(name) {
   return "college:" + name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+function buildPresetShareData(name, description, holidayDates) {
+  return {
+    name: name.trim(),
+    description: description.trim(),
+    holidays: [...holidayDates].sort(),
+    updatedAt: isoToday(),
+  };
+}
+function buildPresetShareUrl(preset) {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.href);
+  url.searchParams.set("preset", JSON.stringify(preset));
+  return url.toString();
+}
+function readPresetFromUrl() {
+  if (typeof window === "undefined") return null;
+  const raw = new URLSearchParams(window.location.search).get("preset");
+  if (!raw) return null;
+  try {
+    const preset = JSON.parse(raw);
+    return preset && Array.isArray(preset.holidays) ? preset : null;
+  } catch {
+    return null;
+  }
+}
+function mergeHolidayDates(prev, dates) {
+  return [...new Map([...prev, ...dates.map(d => ({ date: d, label: d }))].map(h => [h.date, h])).values()]
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 function fmt(n) { return Number.isFinite(n) ? n.toFixed(1) : "0.0"; }
 // average periods/day across the days actually configured (used to convert "classes" -> "days")
@@ -214,11 +244,23 @@ function CollegePresets({ holidayDates, applyDates }) {
   const [saveName, setSaveName] = useState("");
   const [saveDesc, setSaveDesc] = useState("");
   const [saving, setSaving] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
   const [msg, setMsg] = useState({ text: "", type: "" });
+  const hasSharedStorage = typeof window !== "undefined" && !!window.storage;
 
   function flash(text, type = "ok") {
     setMsg({ text, type });
     setTimeout(() => setMsg({ text: "", type: "" }), 4000);
+  }
+
+  async function copyShareUrl(url) {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      flash("Share link copied to clipboard.");
+    } catch {
+      flash("Copy the share link from the field below.", "err");
+    }
   }
 
   async function loadList() {
@@ -257,13 +299,21 @@ function CollegePresets({ holidayDates, applyDates }) {
     setSaving(true);
     try {
       const key = storageKeyFor(saveName);
-      await storage.set(key, JSON.stringify({
-        name: saveName.trim(),
-        description: saveDesc.trim(),
-        holidays: [...holidayDates].sort(),
-        updatedAt: isoToday(),
-      }), true);
-      flash(`Saved "${saveName.trim()}" — visible to all users.`);
+      const preset = buildPresetShareData(saveName, saveDesc, holidayDates);
+      const shareUrl = buildPresetShareUrl(preset);
+      await storage.set(key, JSON.stringify(preset), true);
+      if (shareUrl) {
+        window.history.replaceState({}, "", shareUrl);
+        setShareUrl(shareUrl);
+        flash(hasSharedStorage
+          ? `Saved "${saveName.trim()}" and updated the public share link.`
+          : `Saved "${saveName.trim()}". Share the link below with others.`);
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+        } catch {}
+      } else {
+        flash(`Saved "${saveName.trim()}".`);
+      }
       setSaveName(""); setSaveDesc("");
     } catch { flash("Save failed. Please try again.", "err"); }
     setSaving(false);
@@ -312,7 +362,9 @@ function CollegePresets({ holidayDates, applyDates }) {
           <p className="preset-box-title">Save College Holiday Preset</p>
           <p className="preset-box-sub">
             {holidayDates.length > 0
-              ? `Your ${holidayDates.length} holiday date${holidayDates.length !== 1 ? "s" : ""} will be saved and shared publicly with all users.`
+              ? hasSharedStorage
+                ? `Your ${holidayDates.length} holiday date${holidayDates.length !== 1 ? "s" : ""} will be saved and shared publicly with all users.`
+                : `Your ${holidayDates.length} holiday date${holidayDates.length !== 1 ? "s" : ""} will be saved locally and can be shared with a link.`
               : "Add holiday dates in the section below first, then save your college preset."}
           </p>
           <div className="save-form">
@@ -324,9 +376,19 @@ function CollegePresets({ holidayDates, applyDates }) {
               <label className="field-label">Description <span className="optional">(optional)</span></label>
               <input className="text-input" type="text" placeholder="e.g. 2025 Academic Year" value={saveDesc} onChange={e => setSaveDesc(e.target.value)} />
             </div>
-            <button className="btn-primary" onClick={savePreset} disabled={saving}>{saving ? "Saving..." : "Save and share with all users"}</button>
+            <button className="btn-primary" onClick={savePreset} disabled={saving}>{saving ? "Saving..." : "Save preset"}</button>
           </div>
-          <p className="preset-note">This data is shared publicly. Anyone using this app can load it.</p>
+          <p className="preset-note">
+            {hasSharedStorage
+              ? "This data is shared publicly. Anyone using this app can load it."
+              : "This browser build does not have shared storage. Use the link below to let other people open the same preset."}
+          </p>
+          {shareUrl && (
+            <div className="preset-share">
+              <input className="preset-share-input" type="text" readOnly value={shareUrl} onFocus={e => e.currentTarget.select()} />
+              <button className="btn-load" onClick={() => copyShareUrl(shareUrl)}>Copy link</button>
+            </div>
+          )}
           {msg.text && panel === "save" && <div className={`preset-msg ${msg.type}`}>{msg.text}</div>}
         </div>
       )}
@@ -351,10 +413,7 @@ function HolidayManager({ holidays, setHolidays }) {
   function remove(date) { setHolidays(prev => prev.filter(h => h.date !== date)); }
 
   function applyFromPreset(dates) {
-    setHolidays(prev => {
-      const merged = [...new Map([...prev, ...dates.map(d => ({ date: d, label: d }))].map(h => [h.date, h])).values()];
-      return merged.sort((a, b) => a.date.localeCompare(b.date));
-    });
+    setHolidays(prev => mergeHolidayDates(prev, dates));
   }
 
   function openPicker() {
@@ -1005,6 +1064,8 @@ input, button, select, textarea { font-family: inherit; }
 .btn-load:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
 .save-form { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.75rem; }
 .preset-note { font-size: 0.7rem; color: var(--c-text3); margin-top: 0.6rem; line-height: 1.5; }
+.preset-share { display: flex; gap: 0.5rem; align-items: stretch; margin-top: 0.75rem; }
+.preset-share-input { flex: 1; min-width: 0; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r); padding: 0.65rem 0.85rem; color: var(--c-text2); font-family: 'DM Mono', monospace; font-size: 0.75rem; outline: none; }
 .preset-msg { margin-top: 0.75rem; padding: 0.6rem 0.85rem; border-radius: var(--r); font-size: 0.78rem; border: 1px solid; }
 .preset-msg.ok { background: var(--c-surface); border-color: var(--c-text); color: var(--c-text); }
 .preset-msg.err { background: #ff000008; border-color: var(--c-accent); color: var(--c-accent); }
@@ -1118,6 +1179,10 @@ input, button, select, textarea { font-family: inherit; }
   .schedule-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row-2 { grid-template-columns: 1fr; }
 }
+@media (max-width: 540px) {
+  .preset-share { flex-direction: column; }
+  .preset-share .btn-load { width: 100%; }
+}
 `;
 
 // ─── ROOT APP ──────────────────────────────────────────────────────
@@ -1145,6 +1210,13 @@ export default function App() {
     el.textContent = CSS;
   }, []);
 
+  useEffect(() => {
+    const preset = readPresetFromUrl();
+    if (!preset?.holidays?.length) return;
+    setHolidays(prev => mergeHolidayDates(prev, preset.holidays));
+    setStep(1);
+  }, []);
+
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); }, [theme]);
 
   const canGoNext = useMemo(() => {
@@ -1165,6 +1237,7 @@ export default function App() {
 
   return (
     <div className="app-root">
+      <Analytics />
       <div className="app-shell">
         <div className="topbar">
           <div className="topbar-brand">
