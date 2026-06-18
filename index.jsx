@@ -10,6 +10,7 @@
  */
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 // ─── STORAGE SHIM ────────────────────────────────────────────────
 // Works inside Claude artifacts (window.storage) AND in a normal
@@ -1236,6 +1237,7 @@ export default function App() {
 
   return (
     <div className="app-root">
+      <Analytics />
       <div className="app-shell">
         <div className="topbar">
           <div className="topbar-brand">
