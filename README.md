@@ -63,10 +63,10 @@ git push -u origin main
 ├── package.json           # Project dependencies and scripts
 ├── vite.config.js        # Vite build configuration
 ├── index.html            # HTML entry point
-├── index.jsx             # Original component file
 ├── standalone.html       # Standalone HTML version
 └── src/
     ├── main.jsx          # React entry point
+    ├── App.css           # App styling
     └── index.jsx         # Main App component
 ```
 
