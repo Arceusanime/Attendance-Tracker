@@ -3,22 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Attendance Tracker</title>
+
+    <!-- Primary SEO -->
+    <title>Attendance Tracker | Revabunk</title>
+    <meta
+      name="description"
+      content="Track attendance, calculate required classes, and manage your attendance percentage with Revabunk."
+    />
+    <meta
+      name="keywords"
+      content="attendance tracker, attendance calculator, attendance percentage, Revabunk"
+    />
+    <meta name="author" content="Revabunk" />
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://www.revabunk.tech/" />
+
+    <!-- Favicons -->
+    <link rel="icon" href="/favicon.svg" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="apple-touch-icon" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#0a0a0a" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Attendance Tracker | Revabunk" />
+    <meta
+      property="og:description"
+      content="Simple attendance tracking and attendance percentage calculator."
+    />
+    <meta property="og:url" content="https://www.revabunk.tech/" />
+    <meta property="og:site_name" content="Revabunk" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Attendance Tracker | Revabunk" />
+    <meta
+      name="twitter:description"
+      content="Track attendance and calculate your attendance percentage."
+    />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Revabunk",
+      "url": "https://www.revabunk.tech/"
+    }
+    </script>
+
     <style>
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
       }
-      body {
-        font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #0a0a0a;
-        color: #e0e0e0;
-      }
+
       html {
         --primary: #3b82f6;
         --secondary: #1f2937;
@@ -29,8 +72,16 @@
         --bg-lighter: #1a1a1a;
         --border: #333;
       }
+
+      body {
+        font-family: "DM Sans", -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: var(--bg-dark);
+        color: #e0e0e0;
+      }
     </style>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
